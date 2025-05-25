@@ -1,0 +1,19 @@
+{
+  "name": "dilla-shrine-sampler",
+  "version": "1.0.0",
+  "description": "Browser-based MPC sampler inspired by J Dilla",
+  "main": "index.js",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "build": "mkdir -p dist && cp MPC_index.html dist/index.html"
+  },
+  "keywords": [
+    "sampler",
+    "mpc",
+    "audio",
+    "music",
+    "web-audio"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+} 
