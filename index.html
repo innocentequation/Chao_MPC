@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dilla Shrine Sampler</title>
+  <!-- Load WaveSurfer and plugins using the correct CDN paths -->
+  <script src="https://unpkg.com/wavesurfer.js@6.6.4/dist/wavesurfer.js"></script>
+  <script src="https://unpkg.com/wavesurfer.js@6.6.4/dist/plugin/wavesurfer.regions.js"></script>
+  <style>
+    :root {
+      --pad-size: clamp(80px, 20vw, 100px);
+      --pad-gap: clamp(10px, 2vw, 20px);
+      --waveform-height: clamp(150px, 30vh, 200px);
+      --primary-color: #FF3B3B;
+      --bg-color: #1E1E1E;
+      --pad-color: #2E2E2E;
+      --wave-color: #C5E1A5;
+      --wave-bg: rgba(197, 225, 165, 0.1);
+      --slider-height: 8px;
+      --thumb-size: 20px;
+    }
+
+    body {
+      background: var(--bg-color);
+      font-family: monospace;
+      color: #fff;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #waveform {
+      width: 90%;
+      max-width: 1200px;
+      height: var(--waveform-height);
+      background: var(--wave-bg);
+      margin: 20px auto;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(16px, 3vw, 24px);
+      color: var(--primary-color);
+      user-select: none;
+      border: 1px solid rgba(197, 225, 165, 0.3);
+      overflow: hidden;
+    }
+
+    #waveform-inner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: transparent;
+    }
+
+    #waveform wave {
+      background: transparent !important;
+    }
+
+    .wavesurfer-region {
+      background-color: rgba(255, 59, 59, 0.2) !important;
+      transition: background-color 0.2s ease;
+    }
+
+    .wavesurfer-region:hover {
+      background-color: rgba(255, 59, 59, 0.3) !important;
+    }
+
+    #volume-slider {
+      width: 90%;
+      max-width: 1200px;
+      margin: 10px auto 30px auto;
+      display: block;
+      -webkit-appearance: none;
+      background: var(--pad-color);
+      height: var(--slider-height);
+      border-radius: calc(var(--slider-height) / 2);
+      cursor: pointer;
+    }
+
+    #volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: var(--thumb-size);
+      height: var(--thumb-size);
+      background: var(--primary-color);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--primary-color);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      transform: scale(var(--thumb-scale, 1));
+    }
+
+    #volume-slider::-moz-range-thumb {
+      width: var(--thumb-size);
+      height: var(--thumb-size);
+      background: var(--primary-color);
+      border-radius: 50%;
+      border: none;
+      box-shadow: 0 0 8px var(--primary-color);
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      transform: scale(var(--thumb-scale, 1));
+    }
+
+    .transport {
+      background: var(--primary-color);
+      color: #fff;
+      padding: 10px 20px;
+      margin: 10px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 1em;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+    }
+
+    .transport:hover {
+      box-shadow: 0 0 15px var(--primary-color);
+      transform: translateY(-1px);
+    }
+
+    .transport.active {
+      background: var(--wave-color);
+      color: var(--bg-color);
+    }
+
+    .pad-grid {
+      display: grid;
+      grid-template-columns: repeat(4, var(--pad-size));
+      gap: var(--pad-gap);
+      justify-content: center;
+      margin: 20px auto;
+      max-width: calc(4 * var(--pad-size) + 3 * var(--pad-gap));
+    }
+
+    .pad {
+      width: var(--pad-size);
+      height: var(--pad-size);
+      background: var(--pad-color);
+      border: 2px solid #444;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      border-radius: 4px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .pad:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 2px 8px rgba(255, 59, 59, 0.2);
+    }
+
+    .pad.active {
+      transform: scale(0.95);
+      box-shadow: 0 0 20px var(--primary-color);
+    }
+
+    .glitch-line {
+      position: absolute;
+      top: 50%;
+      left: -100%;
+      width: 300%;
+      height: 1px;
+      background: var(--primary-color);
+      opacity: 0;
+      transform: rotate(-45deg);
+      transition: opacity 0.3s ease;
+      box-shadow: 0 0 15px var(--primary-color);
+    }
+
+    .region-sliders {
+      width: 90%;
+      max-width: 1200px;
+      margin: 30px auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .region-slider {
+      background: var(--pad-color);
+      padding: 15px;
+      border-radius: 8px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .region-slider input[type="range"] {
+      -webkit-appearance: none;
+      background: #444;
+      height: 4px;
+      border-radius: 2px;
+    }
+
+    .region-slider input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: var(--primary-color);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .region-slider span {
+      font-size: 12px;
+      min-width: 60px;
+    }
+
+    @media (max-width: 768px) {
+      .pad-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      
+      .region-slider {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+    }
+
+    .pad {
+      position: relative;
+    }
+    .key-label {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: bold;
+      text-shadow: 0 0 5px rgba(255, 59, 59, 0.5);
+    }
+    .pad-number {
+      position: absolute;
+      bottom: 5px;
+      left: 5px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+    .pad:hover .key-label,
+    .pad:hover .pad-number {
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .pad.active .key-label,
+    .pad.active .pad-number {
+      color: var(--primary-color);
+    }
+
+    .pad-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, 
+        rgba(255,255,255,0.1) 0%,
+        rgba(255,255,255,0) 50%,
+        rgba(0,0,0,0.1) 100%);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Dilla Shrine Sampler</h1>
+
+  <div id="waveform">Upload Sample</div>
+  <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" />
+
+  <div>
+    <button class="transport" id="playPauseBtn">PLAY</button>
+    <button class="transport" id="recBtn">REC</button>
+  </div>
+
+  <div class="pad-grid" id="padGrid">
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+    <div class="pad"></div>
+  </div>
+
+  <div id="region-sliders" class="region-sliders"></div>
+
+  <div class="footer-buttons">
+    <button class="transport" id="loadSampleBtn">LOAD SAMPLE</button>
+    <button class="transport" id="saveBeatBtn">SAVE BEAT</button>
+    <button class="transport" id="toggleFXBtn">FX: LOFI/REVERB</button>
+    <button class="transport" id="toggle432Btn">432 Hz</button>
+    <button class="transport" id="toggleVinylBtn">SP-1200</button>
+  </div>
+
+  <input type="file" id="audioFile" accept="audio/*" style="display: none;" />
+
+  <script>
+    class DillaSampler {
+      constructor() {
+        this.wavesurfer = null;
+        this.regions = [];
+        this.regionData = [];
+        this.fxEnabled = false;
+        this.audioContext = null;
+        this.filter = null;
+        this.isPlaying = false;
+        this.is432Enabled = false;
+        this.isVinylEnabled = false;
+        
+        // Audio processing nodes
+        this.compressor = null;
+        this.bitCrusher = null;
+        this.pitchShifter = null;
+        
+        // Add keyboard mapping
+        this.keyMap = {
+          '4': 0,  // Top row
+          '5': 1,
+          '6': 2,
+          '7': 3,
+          'e': 4,  // Second row
+          'r': 5,
+          't': 6,
+          'y': 7,
+          'd': 8,  // Third row
+          'f': 9,
+          'g': 10,
+          'h': 11,
+          'x': 12, // Bottom row
+          'c': 13,
+          'v': 14,
+          'b': 15
+        };
+        
+        // Cache DOM elements
+        this.elements = {
+          waveform: document.getElementById('waveform'),
+          waveformInner: null,
+          volumeSlider: document.getElementById('volume-slider'),
+          playPauseBtn: document.getElementById('playPauseBtn'),
+          recBtn: document.getElementById('recBtn'),
+          padGrid: document.getElementById('padGrid'),
+          regionSliders: document.getElementById('region-sliders'),
+          audioFile: document.getElementById('audioFile'),
+          loadSampleBtn: document.getElementById('loadSampleBtn'),
+          saveBeatBtn: document.getElementById('saveBeatBtn'),
+          toggleFXBtn: document.getElementById('toggleFXBtn'),
+          toggle432Btn: document.getElementById('toggle432Btn'),
+          toggleVinylBtn: document.getElementById('toggleVinylBtn')
+        };
+
+        // Initialize pads with keyboard labels
+        const pads = this.elements.padGrid.querySelectorAll('.pad');
+        pads.forEach((pad, index) => {
+          // Add data-index
+          pad.setAttribute('data-index', index);
+          
+          // Add key label
+          const keyLabel = Object.entries(this.keyMap).find(([_, i]) => i === index)[0];
+          pad.innerHTML = `
+            <div class="glitch-line"></div>
+            <div class="key-label">${keyLabel.toUpperCase()}</div>
+            <div class="pad-number">${index + 1}</div>
+          `;
+
+          // Add galaxy gradient effect
+          pad.style.background = `
+            linear-gradient(45deg, 
+              rgba(46,46,46,1) 0%,
+              rgba(46,46,46,0.9) 50%,
+              rgba(255,59,59,0.1) 100%)
+          `;
+        });
+
+        // Initialize
+        this.initWaveSurfer();
+        this.bindEvents();
+        this.setupAudioProcessing();
+      }
+
+      initWaveSurfer() {
+        if (this.wavesurfer) {
+          this.wavesurfer.destroy();
+        }
+
+        // Create inner container
+        this.elements.waveform.innerHTML = '<div id="waveform-inner"></div>';
+        this.elements.waveformInner = document.getElementById('waveform-inner');
+
+        this.wavesurfer = WaveSurfer.create({
+          container: '#waveform-inner',
+          waveColor: 'var(--wave-color)',
+          progressColor: 'var(--primary-color)',
+          cursorColor: 'var(--primary-color)',
+          backend: 'WebAudio',
+          responsive: true,
+          height: 128,
+          normalize: true,
+          minPxPerSec: 50,
+          plugins: [WaveSurfer.regions.create()],
+          barWidth: 2,
+          barGap: 1,
+          barRadius: 3,
+          fillParent: true,
+          scrollParent: false,
+          pixelRatio: 1
+        });
+
+        this.setupWaveSurferEvents();
+        this.setupAudioProcessing();
+      }
+
+      setupWaveSurferEvents() {
+        this.wavesurfer.on('ready', () => {
+          console.log('WaveSurfer ready');
+          this.elements.waveform.textContent = '';
+          this.autoChopRegions();
+          this.renderRegionSliders();
+        });
+
+        this.wavesurfer.on('error', error => {
+          console.error('WaveSurfer error:', error);
+          this.elements.waveform.textContent = "Error loading audio. Please try another file.";
+        });
+
+        this.wavesurfer.on('loading', progress => {
+          console.log('Loading:', progress);
+          this.elements.waveform.textContent = `Loading: ${progress}%`;
+        });
+
+        this.wavesurfer.on('play', () => {
+          this.isPlaying = true;
+          this.elements.playPauseBtn.textContent = 'PAUSE';
+        });
+
+        this.wavesurfer.on('pause', () => {
+          this.isPlaying = false;
+          this.elements.playPauseBtn.textContent = 'PLAY';
+        });
+      }
+
+      autoChopRegions() {
+        // Clear existing regions
+        this.wavesurfer.regions.clear();
+        this.regions = [];
+        this.regionData = [];
+
+        const duration = this.wavesurfer.getDuration();
+        const segmentLength = duration / 16;
+
+        for (let i = 0; i < 16; i++) {
+          const start = segmentLength * i;
+          const end = i === 15 ? duration : segmentLength * (i + 1);
+          
+          const region = this.wavesurfer.regions.add({
+            start,
+            end,
+            color: 'rgba(255, 59, 59, 0.1)',
+            drag: false,
+            resize: false,
+            id: `region${i}`
+          });
+
+          this.regions.push(region);
+          this.regionData.push({ start, end });
+        }
+      }
+
+      renderRegionSliders() {
+        const template = document.createElement('template');
+        const sliders = this.regionData.map((region, i) => `
+          <div class="region-slider">
+            <span>Pad ${i + 1}</span>
+            <input type="range" 
+                   class="region-range start" 
+                   data-index="${i}" 
+                   data-type="start"
+                   min="0" 
+                   max="${this.wavesurfer.getDuration()}" 
+                   step="0.01" 
+                   value="${region.start}">
+            <span class="start-value">${region.start.toFixed(2)}s</span>
+            <input type="range" 
+                   class="region-range end" 
+                   data-index="${i}" 
+                   data-type="end"
+                   min="0" 
+                   max="${this.wavesurfer.getDuration()}" 
+                   step="0.01" 
+                   value="${region.end}">
+            <span class="end-value">${region.end.toFixed(2)}s</span>
+          </div>
+        `).join('');
+
+        template.innerHTML = sliders;
+        this.elements.regionSliders.innerHTML = '';
+        this.elements.regionSliders.appendChild(template.content);
+
+        // Use event delegation for better performance
+        this.elements.regionSliders.addEventListener('input', this.handleRegionSliderInput.bind(this));
+      }
+
+      handleRegionSliderInput(e) {
+        if (!e.target.classList.contains('region-range')) return;
+
+        const index = parseInt(e.target.dataset.index);
+        const type = e.target.dataset.type;
+        let value = parseFloat(e.target.value);
+
+        // Validate and update region
+        if (type === 'start') {
+          value = Math.min(value, this.regionData[index].end - 0.01);
+          this.regionData[index].start = value;
+          e.target.parentNode.querySelector('.start-value').textContent = `${value.toFixed(2)}s`;
+        } else {
+          value = Math.max(value, this.regionData[index].start + 0.01);
+          this.regionData[index].end = value;
+          e.target.parentNode.querySelector('.end-value').textContent = `${value.toFixed(2)}s`;
+        }
+
+        // Update region visually
+        this.regions[index].update({
+          start: this.regionData[index].start,
+          end: this.regionData[index].end
+        });
+      }
+
+      bindEvents() {
+        // File loading
+        this.elements.audioFile.addEventListener('change', (e) => this.handleFileSelect(e));
+
+        // Volume control
+        this.elements.volumeSlider.addEventListener('input', (e) => this.handleVolumeChange(e));
+
+        // Play/Pause
+        this.elements.playPauseBtn.addEventListener('click', () => {
+          if (this.wavesurfer) {
+            this.wavesurfer.playPause();
+          }
+        });
+
+        // Pad triggering
+        this.elements.padGrid.addEventListener('click', (e) => this.handlePadClick(e));
+
+        // Add keyboard event listeners
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+
+        // Prevent memory leaks
+        window.addEventListener('beforeunload', () => {
+          if (this.wavesurfer) {
+            this.wavesurfer.destroy();
+          }
+        });
+
+        // Button events
+        this.elements.loadSampleBtn.addEventListener('click', () => this.loadSample());
+        this.elements.saveBeatBtn.addEventListener('click', () => this.saveBeat());
+        this.elements.toggleFXBtn.addEventListener('click', () => this.toggleFX());
+        this.elements.toggle432Btn.addEventListener('click', (e) => {
+          const isEnabled = this.toggle432();
+          if (isEnabled) {
+            e.target.classList.add('active');
+          } else {
+            e.target.classList.remove('active');
+          }
+        });
+        this.elements.toggleVinylBtn.addEventListener('click', (e) => {
+          const isEnabled = this.toggleVinyl();
+          if (isEnabled) {
+            e.target.classList.add('active');
+          } else {
+            e.target.classList.remove('active');
+          }
+        });
+      }
+
+      handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        this.elements.waveform.textContent = "Loading...";
+        
+        try {
+          const url = URL.createObjectURL(file);
+          
+          // Create offline context for processing
+          fetch(url)
+            .then(response => response.arrayBuffer())
+            .then(arrayBuffer => {
+              const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+              return audioContext.decodeAudioData(arrayBuffer);
+            })
+            .then(audioBuffer => {
+              // Compress audio data
+              const offlineContext = new OfflineAudioContext(
+                audioBuffer.numberOfChannels,
+                audioBuffer.length,
+                audioBuffer.sampleRate
+              );
+              
+              const source = offlineContext.createBufferSource();
+              source.buffer = audioBuffer;
+              
+              const compressor = offlineContext.createDynamicsCompressor();
+              compressor.threshold.value = -24;
+              compressor.knee.value = 30;
+              compressor.ratio.value = 12;
+              compressor.attack.value = 0.003;
+              compressor.release.value = 0.25;
+              
+              source.connect(compressor);
+              compressor.connect(offlineContext.destination);
+              source.start();
+              
+              return offlineContext.startRendering();
+            })
+            .then(processedBuffer => {
+              // Create new blob from processed buffer
+              const wav = this.audioBufferToWav(processedBuffer);
+              const processedUrl = URL.createObjectURL(new Blob([wav], { type: 'audio/wav' }));
+              
+              // Load processed audio into wavesurfer
+              this.wavesurfer.load(processedUrl);
+              
+              this.wavesurfer.on('ready', () => {
+                URL.revokeObjectURL(url);
+                URL.revokeObjectURL(processedUrl);
+                this.setupAudioProcessing();
+                this.connectAudioNodes();
+              });
+            })
+            .catch(error => {
+              console.error('Error processing audio:', error);
+              this.elements.waveform.textContent = "Error processing audio. Please try another file.";
+            });
+        } catch (error) {
+          console.error('Error loading file:', error);
+          this.elements.waveform.textContent = "Error loading audio. Please try another file.";
+        }
+      }
+
+      handleVolumeChange(e) {
+        const value = parseFloat(e.target.value);
+        this.wavesurfer.setVolume(value);
+        this.updateVolumeThumbScale(value);
+      }
+
+      updateVolumeThumbScale(value) {
+        document.documentElement.style.setProperty('--thumb-scale', 1 + (value * 0.5));
+      }
+
+      handleKeyDown(event) {
+        // Ignore if user is typing in an input field
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') return;
+        
+        const key = event.key.toLowerCase();
+        if (this.keyMap.hasOwnProperty(key)) {
+          event.preventDefault(); // Prevent default browser behavior
+          
+          const padIndex = this.keyMap[key];
+          const pad = this.elements.padGrid.children[padIndex];
+          
+          // Only trigger if pad isn't already active
+          if (!pad.classList.contains('active')) {
+            this.triggerPad(pad, padIndex);
+          }
+        }
+      }
+
+      handleKeyUp(event) {
+        const key = event.key.toLowerCase();
+        if (this.keyMap.hasOwnProperty(key)) {
+          const padIndex = this.keyMap[key];
+          const pad = this.elements.padGrid.children[padIndex];
+          pad.classList.remove('active');
+        }
+      }
+
+      triggerPad(pad, index) {
+        if (!this.wavesurfer || !this.regionData[index]) return;
+
+        // Visual feedback
+        pad.classList.add('active');
+        const glitchLine = pad.querySelector('.glitch-line');
+        glitchLine.style.opacity = '0.7';
+        glitchLine.style.left = '-100%';
+
+        // Trigger glitch animation
+        requestAnimationFrame(() => {
+          glitchLine.style.left = '100%';
+        });
+
+        // Reset visual state
+        setTimeout(() => {
+          pad.classList.remove('active');
+          glitchLine.style.opacity = '0';
+        }, 300);
+
+        // Play the region
+        const region = this.regionData[index];
+        this.wavesurfer.seekTo(region.start / this.wavesurfer.getDuration());
+        this.wavesurfer.play();
+
+        // Stop at region end
+        const duration = region.end - region.start;
+        setTimeout(() => {
+          if (this.wavesurfer.getCurrentTime() >= region.end) {
+            this.wavesurfer.pause();
+          }
+        }, duration * 1000);
+      }
+
+      handlePadClick(e) {
+        const pad = e.target.closest('.pad');
+        if (!pad || !this.wavesurfer) return;
+
+        const index = parseInt(pad.dataset.index);
+        if (isNaN(index) || !this.regionData[index]) return;
+
+        this.triggerPad(pad, index);
+      }
+
+      loadSample() {
+        console.log('Load sample clicked');
+        this.elements.audioFile.click();
+      }
+
+      saveBeat() {
+        const beatData = {
+          regions: this.regionData,
+          timestamp: new Date().toISOString()
+        };
+
+        const blob = new Blob([JSON.stringify(beatData)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `dilla-beat-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      toggleFX() {
+        this.fxEnabled = !this.fxEnabled;
+        
+        if (this.fxEnabled && this.wavesurfer) {
+          const context = this.wavesurfer.backend.getAudioContext();
+          this.filter = context.createBiquadFilter();
+          this.filter.type = 'lowpass';
+          this.filter.frequency.value = 2000;
+          this.wavesurfer.backend.setFilter(this.filter);
+        } else if (this.wavesurfer) {
+          this.wavesurfer.backend.setFilter(null);
+          this.filter = null;
+        }
+      }
+
+      async setupAudioProcessing() {
+        if (!this.wavesurfer) return;
+        
+        const audioContext = this.wavesurfer.backend.getAudioContext();
+        
+        try {
+          // Create AudioWorklet code
+          const workletCode = `
+            // Bit Crusher Processor
+            class BitCrusherProcessor extends AudioWorkletProcessor {
+              static get parameterDescriptors() {
+                return [{
+                  name: 'bits',
+                  defaultValue: 12,
+                  minValue: 1,
+                  maxValue: 16
+                }, {
+                  name: 'rate',
+                  defaultValue: 0.5,
+                  minValue: 0.0,
+                  maxValue: 1.0
+                }];
+              }
+
+              constructor() {
+                super();
+                this.lastValue = 0;
+                this.phase = 0;
+              }
+
+              process(inputs, outputs, parameters) {
+                const input = inputs[0];
+                const output = outputs[0];
+                const bits = parameters.bits[0];
+                const rate = parameters.rate[0];
+
+                for (let channel = 0; channel < input.length; channel++) {
+                  const inputChannel = input[channel];
+                  const outputChannel = output[channel];
+
+                  for (let i = 0; i < inputChannel.length; i++) {
+                    // Update phase and check if we need to calculate a new value
+                    this.phase += rate;
+                    if (this.phase >= 1.0) {
+                      this.phase -= 1.0;
+                      // Quantize to 2^bits steps
+                      const step = Math.pow(2, bits - 1);
+                      this.lastValue = Math.round(inputChannel[i] * step) / step;
+                    }
+                    outputChannel[i] = this.lastValue;
+                  }
+                }
+
+                return true;
+              }
+            }
+
+            // Pitch Shifter Processor
+            class PitchShifterProcessor extends AudioWorkletProcessor {
+              static get parameterDescriptors() {
+                return [{
+                  name: 'pitch',
+                  defaultValue: 0.98181818, // 432/440 Hz ratio
+                  minValue: 0.5,
+                  maxValue: 2.0
+                }];
+              }
+
+              constructor() {
+                super();
+                this.grainSize = 2048;
+                this.grains = [];
+                this.readPosition = 0;
+              }
+
+              process(inputs, outputs, parameters) {
+                const input = inputs[0];
+                const output = outputs[0];
+                const pitch = parameters.pitch[0];
+
+                if (!input.length) return true;
+
+                for (let channel = 0; channel < input.length; channel++) {
+                  const inputChannel = input[channel];
+                  const outputChannel = output[channel];
+
+                  // Create new grain if needed
+                  if (this.readPosition >= this.grainSize) {
+                    this.readPosition = 0;
+                    // Store a copy of the current grain
+                    const newGrain = new Float32Array(this.grainSize);
+                    for (let i = 0; i < this.grainSize && i < inputChannel.length; i++) {
+                      newGrain[i] = inputChannel[i];
+                    }
+                    this.grains.push(newGrain);
+                    // Keep only the last 2 grains
+                    if (this.grains.length > 2) {
+                      this.grains.shift();
+                    }
+                  }
+
+                  // Process output
+                  for (let i = 0; i < outputChannel.length; i++) {
+                    if (this.grains.length > 0) {
+                      const grainPosition = (this.readPosition * pitch) % this.grainSize;
+                      const grainIndex = Math.floor(grainPosition);
+                      const fraction = grainPosition - grainIndex;
+
+                      // Crossfade between grains
+                      const currentGrain = this.grains[this.grains.length - 1];
+                      const value1 = currentGrain[grainIndex] || 0;
+                      const value2 = currentGrain[(grainIndex + 1) % this.grainSize] || 0;
+                      
+                      outputChannel[i] = value1 + (value2 - value1) * fraction;
+                    } else {
+                      outputChannel[i] = 0;
+                    }
+                    this.readPosition++;
+                  }
+                }
+
+                return true;
+              }
+            }
+
+            registerProcessor('bit-crusher-processor', BitCrusherProcessor);
+            registerProcessor('pitch-shifter-processor', PitchShifterProcessor);
+          `;
+
+          // Create a data URL containing the worklet code
+          const dataUrl = 'data:text/javascript;base64,' + btoa(workletCode);
+
+          // Load the worklet from the data URL
+          await audioContext.audioWorklet.addModule(dataUrl);
+          
+          // Create compressor
+          this.compressor = audioContext.createDynamicsCompressor();
+          this.compressor.threshold.value = -24;
+          this.compressor.knee.value = 30;
+          this.compressor.ratio.value = 12;
+          this.compressor.attack.value = 0.003;
+          this.compressor.release.value = 0.25;
+          
+          // Create bit crusher effect (SP-1200 style 12-bit)
+          this.bitCrusher = new AudioWorkletNode(audioContext, 'bit-crusher-processor', {
+            parameterData: {
+              bits: 12,
+              rate: 26040 / audioContext.sampleRate
+            }
+          });
+          
+          // Initialize pitch shifter for 432 Hz conversion
+          this.pitchShifter = new AudioWorkletNode(audioContext, 'pitch-shifter-processor', {
+            parameterData: {
+              pitch: 432 / 440 // Ratio for converting to 432 Hz
+            }
+          });
+
+          console.log('Audio processing setup completed successfully');
+        } catch (error) {
+          console.error('Error setting up audio processing:', error);
+          
+          // Add more detailed error information
+          if (error instanceof DOMException) {
+            console.error('DOMException details:', {
+              name: error.name,
+              message: error.message,
+              code: error.code
+            });
+          }
+          
+          // Fallback to basic audio without effects
+          console.log('Falling back to basic audio without effects');
+          this.bitCrusher = null;
+          this.pitchShifter = null;
+        }
+      }
+
+      connectAudioNodes() {
+        if (!this.wavesurfer || !this.wavesurfer.backend.source) return;
+        
+        const source = this.wavesurfer.backend.source;
+        const destination = this.wavesurfer.backend.getAudioContext().destination;
+        
+        // Disconnect existing connections
+        source.disconnect();
+        
+        // Create audio processing chain
+        if (this.isVinylEnabled && this.bitCrusher) {
+          source
+            .connect(this.compressor)
+            .connect(this.bitCrusher);
+          
+          if (this.is432Enabled && this.pitchShifter) {
+            this.bitCrusher
+              .connect(this.pitchShifter)
+              .connect(destination);
+          } else {
+            this.bitCrusher.connect(destination);
+          }
+        } else if (this.is432Enabled && this.pitchShifter) {
+          source
+            .connect(this.pitchShifter)
+            .connect(destination);
+        } else {
+          source.connect(destination);
+        }
+      }
+
+      toggle432() {
+        this.is432Enabled = !this.is432Enabled;
+        this.connectAudioNodes();
+        return this.is432Enabled;
+      }
+
+      toggleVinyl() {
+        this.isVinylEnabled = !this.isVinylEnabled;
+        this.connectAudioNodes();
+        return this.isVinylEnabled;
+      }
+
+      // Helper function to convert AudioBuffer to WAV format
+      audioBufferToWav(buffer) {
+        const numChannels = buffer.numberOfChannels;
+        const sampleRate = buffer.sampleRate;
+        const format = 1; // PCM
+        const bitDepth = 16;
+        
+        let result = new Float32Array(buffer.length * numChannels);
+        
+        // Interleave channels
+        for (let channel = 0; channel < numChannels; channel++) {
+          const channelData = buffer.getChannelData(channel);
+          for (let i = 0; i < channelData.length; i++) {
+            result[i * numChannels + channel] = channelData[i];
+          }
+        }
+        
+        // Convert to 16-bit PCM
+        const intData = new Int16Array(result.length);
+        for (let i = 0; i < result.length; i++) {
+          const s = Math.max(-1, Math.min(1, result[i]));
+          intData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        
+        // Create WAV file
+        const wavBuffer = new ArrayBuffer(44 + intData.length * 2);
+        const view = new DataView(wavBuffer);
+        
+        // Write WAV header
+        const writeString = (view, offset, string) => {
+          for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+          }
+        };
+        
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + intData.length * 2, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, format, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * numChannels * 2, true);
+        view.setUint16(32, numChannels * 2, true);
+        view.setUint16(34, bitDepth, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, intData.length * 2, true);
+        
+        // Write PCM data
+        const offset = 44;
+        for (let i = 0; i < intData.length; i++) {
+          view.setInt16(offset + i * 2, intData[i], true);
+        }
+        
+        return wavBuffer;
+      }
+    }
+
+    // Add CSS for active state
+    const style = document.createElement('style');
+    style.textContent += `
+      .transport.active {
+        background: var(--wave-color);
+        color: var(--bg-color);
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Create global sampler instance
+    window.sampler = new DillaSampler();
+
+    // Add load event listener to ensure everything is loaded
+    window.addEventListener('load', () => {
+      if (!window.sampler) {
+        window.sampler = new DillaSampler();
+      }
+    });
+  </script>
+
+</body>
+</html>
